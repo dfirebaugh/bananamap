@@ -15,41 +15,53 @@ var (
 	canvas *ebiten.Image
 	lvl    *ebiten.Image
 
-	startX, startY int
-
+	startX, startY   int
 	offsetX, offsetY float64
+
+	gridLines []Line
 )
 
 func initCanvas() {
 	canvas = ebiten.NewImage(canvasWidth, canvasHeight)
 	lvl = ebiten.NewImage(spriteSheetWidth, spriteSheetHeight)
+	go func() {
+		gridLines = initGrid()
+	}()
 }
 
-func updateGrid(screen *ebiten.Image) {
-	op := &ebiten.DrawImageOptions{}
-
+func updateGrid() {
+	mouseX, mouseY := ebiten.CursorPosition()
 	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonMiddle) {
-		mouseX, mouseY := ebiten.CursorPosition()
-		offsetX = float64(mouseX) - float64(startX)
-		offsetY = float64(mouseY) - float64(startY)
-	} else {
-		startX, startY = ebiten.CursorPosition()
+		offsetX = offsetX + (float64(mouseX) - float64(startX))
+		offsetY = offsetY + (float64(mouseY) - float64(startY))
 	}
+	startX, startY = ebiten.CursorPosition()
+}
 
+func initGrid() []Line {
+	var lines []Line
 	for n := 0.0; n <= ngridLine; n++ {
 		horizontal := NewLine(canvasWidth, 1, 0, n*tileSize)
-		horizontal.Draw(canvas)
 		vertical := NewLine(1, canvasHeight, n*tileSize, 0)
-		vertical.Draw(canvas)
-	}
 
-	op.GeoM.Translate(offsetX, offsetY)
-	screen.DrawImage(canvas, op)
+		lines = append(lines, *horizontal)
+		lines = append(lines, *vertical)
+	}
+	return lines
+}
+
+func drawGrid(lines []Line) {
+	for _, g := range lines {
+		g.Draw(canvas)
+	}
 }
 
 func drawCanvas(screen *ebiten.Image) {
+	op := &ebiten.DrawImageOptions{}
 	canvas.Fill(color.NRGBA{0x00, 0x40, 0x80, 0xff})
 	lvl.Fill(color.NRGBA{0x40, 0x40, 0x80, 0xff})
 	canvas.DrawImage(lvl, &ebiten.DrawImageOptions{})
-	updateGrid(screen)
+	drawGrid(gridLines)
+	op.GeoM.Translate(offsetX, offsetY)
+	screen.DrawImage(canvas, op)
 }

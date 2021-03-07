@@ -41,6 +41,7 @@ func init() {
 }
 
 func (g *Game) Update() error {
+	updateGrid()
 	return nil
 }
 
