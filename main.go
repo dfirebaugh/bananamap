@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"image/color"
 	_ "image/png"
 	"log"
 
@@ -20,8 +19,7 @@ const (
 )
 
 var (
-	spriteSheet *ebiten.Image
-	background  *ebiten.Image
+	background *ebiten.Image
 )
 
 type Game struct {
@@ -29,11 +27,10 @@ type Game struct {
 
 func init() {
 	initCanvas()
+	initSpriteSheet()
+
 	var err error
-	spriteSheet, _, err = ebitenutil.NewImageFromFile("resources/images/tiles.png")
-	if err != nil {
-		log.Fatal(err)
-	}
+
 	background = ebiten.NewImage(screenWidth, canvasHeight)
 	if err != nil {
 		log.Fatal(err)
@@ -52,12 +49,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// Display the information with "X: xx, Y: xx" format
 	ebitenutil.DebugPrint(screen, fmt.Sprintf("X: %d, Y: %d", x, y))
 	drawCanvas(screen)
-
-	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Translate(float64(0), float64(canvasHeight-spriteSheetHeight))
-	background.Fill(color.Black)
-	screen.DrawImage(background, op)
-	screen.DrawImage(spriteSheet, op)
+	drawSpriteSheet(screen)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
