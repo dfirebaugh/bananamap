@@ -1,11 +1,13 @@
 package main
 
 import (
-	"fmt"
-	"image"
 	"image/color"
+	"log"
+
+	"bananamap/level"
 
 	ebiten "github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
@@ -20,22 +22,29 @@ var (
 	startX, startY   int
 	offsetX, offsetY float64
 
-	gridLines  []Line
-	worldTiles map[coordinates]*ebiten.Image
-)
+	isCollidable = false
 
-type coordinates struct {
-	x int
-	y int
-}
+	gridLines    []Line
+	lvl          *level.Level
+	currentLayer = 0
+)
 
 func initCanvas() {
 	canvas = ebiten.NewImage(canvasWidth, canvasHeight)
 	go func() {
 		gridLines = initGrid()
 	}()
+	var err error
+	loadedSpriteSheet, _, err = ebitenutil.NewImageFromFile("resources/images/tiles.png")
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	worldTiles = make(map[coordinates]*ebiten.Image)
+	lvl = level.Create(level.Source{
+		Img:      loadedSpriteSheet,
+		TileSize: 16,
+	},
+		canvasWidth, canvasHeight, tileSize, 1)
 }
 
 func initGrid() []Line {
@@ -52,7 +61,7 @@ func initGrid() []Line {
 
 func updateGrid() {
 	updateGridPan()
-	canvasClick()
+	canvasInputs()
 }
 
 func updateGridPan() {
@@ -77,20 +86,10 @@ func drawGrid(lines []Line) {
 func drawCanvas(screen *ebiten.Image) {
 	op := &ebiten.DrawImageOptions{}
 	canvas.Fill(color.NRGBA{0x00, 0x40, 0x80, 0xff})
-	drawMap(canvas)
+	lvl.Draw(canvas)
 	drawGrid(gridLines)
 	op.GeoM.Translate(offsetX, offsetY)
 	screen.DrawImage(canvas, op)
-}
-
-func drawMap(canvas *ebiten.Image) {
-	for coords, tile := range worldTiles {
-		op := &ebiten.DrawImageOptions{}
-		// tile.Fill(color.White)
-		op.GeoM.Scale(2, 2)
-		op.GeoM.Translate(float64(coords.x), float64(coords.y))
-		canvas.DrawImage(tile, op)
-	}
 }
 
 func getTileIndex(mouseX, mouseY int) (int, int) {
@@ -99,7 +98,23 @@ func getTileIndex(mouseX, mouseY int) (int, int) {
 	return mapX / tileSize, mapY / tileSize
 }
 
-func canvasClick() {
+func canvasInputs() {
+	if inpututil.IsKeyJustPressed(ebiten.KeyLeft) {
+		selection[0].coords.X--
+		spriteIndicatorTranslate(selection[0])
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyRight) {
+		selection[0].coords.X++
+		spriteIndicatorTranslate(selection[0])
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyUp) {
+		selection[0].coords.Y--
+		spriteIndicatorTranslate(selection[0])
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyDown) {
+		selection[0].coords.Y++
+		spriteIndicatorTranslate(selection[0])
+	}
 
 	// toggle
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
@@ -113,23 +128,26 @@ func canvasClick() {
 
 		tileX, tileY := getTileIndex(mouseX, mouseY)
 
-		coords := coordinates{
-			x: tileX * tileSize,
-			y: tileY * tileSize,
+		coords := level.Coordinates{
+			X: tileX,
+			Y: tileY,
 		}
 
-		// if worldTiles[coords] != nil {
-		// 	delete(worldTiles, coords)
-		// 	return
-		// }
+		index := level.CoordsToIndex(coords, canvasWidth/tileSize, tileSize)
+		if index >= (canvasWidth/tileSize)*(canvasHeight/tileSize) {
+			return
+		}
+		if index < 0 {
+			return
+		}
 
-		fmt.Println(selectedSpriteCoords.x, selectedSpriteCoords.y)
-
-		// worldTiles[coords] = ebiten.NewImage(tileSize, tileSize)
-		worldTiles[coords] = ebiten.NewImageFromImage(loadedSpriteSheet.SubImage(image.Rectangle{
-			image.Point{X: selectedSpriteCoords.x * spriteSize, Y: selectedSpriteCoords.y * spriteSize},
-			image.Point{X: (selectedSpriteCoords.x * spriteSize) + spriteSize, Y: (selectedSpriteCoords.y * spriteSize) + spriteSize},
-		}))
+		for _, s := range selection {
+			lvl.UpdateTile(level.Coordinates{
+				X: coords.X + s.coords.X - selection[0].coords.X,
+				Y: coords.Y + s.coords.Y - selection[0].coords.Y,
+			}, 0, s.coords, spriteSize, loadedSpriteSheet)
+		}
+		lvl.Export()
 		return
 	}
 
@@ -137,13 +155,18 @@ func canvasClick() {
 
 	tileX, tileY := getTileIndex(mouseX, mouseY)
 
-	coords := coordinates{
-		x: tileX * tileSize,
-		y: tileY * tileSize,
+	coords := level.Coordinates{
+		X: tileX,
+		Y: tileY,
 	}
 
 	// stream delete
 	if ebiten.IsKeyPressed(ebiten.KeyControl) {
+		// if the click is in the spritesheet / toolbox area
+		if mouseY > screenHeight-spriteSheetHeight {
+			spriteSheetClick()
+			return
+		}
 		if !ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
 			return
 		}
@@ -164,9 +187,5 @@ func canvasClick() {
 	}
 
 	// stream draw
-	// worldTiles[coords] = ebiten.NewImage(tileSize, tileSize)
-	worldTiles[coords] = ebiten.NewImageFromImage(loadedSpriteSheet.SubImage(image.Rectangle{
-		image.Point{X: selectedSpriteCoords.x * spriteSize, Y: selectedSpriteCoords.y * spriteSize},
-		image.Point{X: (selectedSpriteCoords.x * spriteSize) + spriteSize, Y: (selectedSpriteCoords.y * spriteSize) + spriteSize},
-	}))
+	lvl.UpdateTile(coords, 0, selection[0].coords, spriteSize, loadedSpriteSheet)
 }

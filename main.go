@@ -11,7 +11,7 @@ import (
 
 const (
 	screenWidth       = 640
-	screenHeight      = 640
+	screenHeight      = 800
 	spriteSheetWidth  = 400
 	spriteSheetHeight = 224
 	canvasHeight      = screenHeight

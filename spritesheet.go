@@ -1,31 +1,41 @@
 package main
 
 import (
+	"bananamap/level"
 	"image/color"
-	"log"
 
 	ebiten "github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
+type cursor struct {
+	coords level.Coordinates
+	img    *ebiten.Image
+	op     *ebiten.DrawImageOptions
+}
+
 var (
-	spriteSize           = 16
-	spriteSheet          *ebiten.Image
-	loadedSpriteSheet    *ebiten.Image
-	spriteCursor         *ebiten.Image
-	spriteCursorOp       *ebiten.DrawImageOptions
-	selectedSpriteCoords coordinates
+	spriteSize        = 16
+	spriteSheet       *ebiten.Image
+	loadedSpriteSheet *ebiten.Image
+	// selectedSpriteCoords level.Coordinates
+	selection []cursor
 )
 
 func initSpriteSheet() {
-	var err error
-	spriteCursorOp = &ebiten.DrawImageOptions{}
-	spriteCursor = ebiten.NewImage(spriteSize, spriteSize)
 	spriteSheet = ebiten.NewImage(spriteSheetWidth, spriteSheetHeight)
-	loadedSpriteSheet, _, err = ebitenutil.NewImageFromFile("resources/images/tiles.png")
-	if err != nil {
-		log.Fatal(err)
+
+	newCursor := cursor{
+		coords: level.Coordinates{
+			X: 0,
+			Y: 0,
+		},
+		img: ebiten.NewImage(spriteSize, spriteSize),
+		op:  &ebiten.DrawImageOptions{},
 	}
+
+	selection = make([]cursor, 1)
+
+	selection[0] = newCursor
 }
 
 func drawSpriteSheet(screen *ebiten.Image) {
@@ -36,8 +46,10 @@ func drawSpriteSheet(screen *ebiten.Image) {
 	screen.DrawImage(loadedSpriteSheet, op)
 	screen.DrawImage(spriteSheet, op)
 	spriteSheet.Clear()
-	spriteCursor.Fill(color.White)
-	spriteSheet.DrawImage(spriteCursor, spriteCursorOp)
+	for _, c := range selection {
+		c.img.Fill(color.White)
+		spriteSheet.DrawImage(c.img, c.op)
+	}
 }
 
 func getSpriteIndex(mouseX, mouseY int) (int, int) {
@@ -48,10 +60,37 @@ func getSpriteIndex(mouseX, mouseY int) (int, int) {
 
 func spriteSheetClick() {
 	x, y := getSpriteIndex(ebiten.CursorPosition())
-	selectedSpriteCoords.x = x
-	selectedSpriteCoords.y = y
 
-	// fmt.Println(iX, iY)
-	spriteCursorOp.GeoM.Reset()
-	spriteCursorOp.GeoM.Translate(float64(selectedSpriteCoords.x*spriteSize), float64(selectedSpriteCoords.y*spriteSize))
+	if ebiten.IsKeyPressed(ebiten.KeyControl) {
+		// add tiles to the selection multiple tiles to be added to the selection
+
+		newCursor := cursor{
+			coords: level.Coordinates{
+				X: x,
+				Y: y,
+			},
+			op:  &ebiten.DrawImageOptions{},
+			img: ebiten.NewImage(spriteSize, spriteSize),
+		}
+		selection = append(selection, newCursor)
+
+		for _, s := range selection {
+			spriteIndicatorTranslate(s)
+		}
+		return
+	}
+	// reset selection to one element
+	selection = selection[:1]
+
+	selection[0].coords.X = x
+	selection[0].coords.Y = y
+
+	for _, s := range selection {
+		spriteIndicatorTranslate(s)
+	}
+}
+
+func spriteIndicatorTranslate(c cursor) {
+	c.op.GeoM.Reset()
+	c.op.GeoM.Translate(float64(c.coords.X*spriteSize), float64(c.coords.Y*spriteSize))
 }
