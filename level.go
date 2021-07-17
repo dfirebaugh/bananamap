@@ -1,7 +1,4 @@
-// Package level Pass in the path to your png
-//   file that was created with bananamap and
-//   the `Load` function will return
-package level
+package main
 
 import (
 	"encoding/json"
