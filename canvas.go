@@ -180,7 +180,7 @@ func (s *gameScreen) canvasInputs() {
 				Y: coords.Y + sel.Coords.Y - selection[0].Coords.Y,
 			}, 0, sel.Coords, s.spriteSize, s.loadedSpriteSheet)
 		}
-		s.lvl.Export()
+		s.lvl.ExportJSON()
 		return
 	}
 
@@ -222,4 +222,8 @@ func (s *gameScreen) canvasInputs() {
 
 	// stream draw
 	s.lvl.UpdateTile(coords, 0, selection[0].Coords, s.spriteSize, s.loadedSpriteSheet)
+}
+
+func (s *gameScreen) GetLevel() *Level {
+	return s.lvl
 }

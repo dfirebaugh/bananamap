@@ -1,12 +1,14 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"image"
 	"io/ioutil"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	pngembed "github.com/sabhiram/png-embed"
 )
 
 type Coordinates struct {
@@ -94,7 +96,7 @@ func (l Level) UpdateTile(coords Coordinates, layer int, selectionCoords Coordin
 	}))
 }
 
-func (l Level) Export() {
+func (l Level) ExportJSON() {
 	b, err := json.MarshalIndent(l, "", " ")
 	if err != nil {
 		fmt.Println(err)
@@ -102,6 +104,21 @@ func (l Level) Export() {
 	}
 
 	_ = ioutil.WriteFile("test.json", b, 0644)
+}
+
+func (l Level) ExportPNG() {
+	b, err := json.Marshal(l)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	bs, _ := ioutil.ReadFile("sample.png")
+
+	str := base64.StdEncoding.EncodeToString(b)
+
+	// Encode the key "FOO" with the value "BAR" (string).
+	data, _ := pngembed.Embed(bs, "FOO", str)
+	ioutil.WriteFile("sample.png", data, 0755)
 }
 
 // JSONToTileMap returns an int slice of tiles.  This represents which subimages from the spritesheet

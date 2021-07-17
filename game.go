@@ -8,30 +8,32 @@ type Screen interface {
 	UpdateGrid()
 	DrawCanvas(*ebiten.Image)
 	DrawSpriteSheet(*ebiten.Image)
+	GetLevel() *Level
 }
 
 type Game struct {
-	screen Screen
+	Canvas Screen
 	Width  int
 	Height int
 }
 
 func NewGame(screen Screen) *Game {
 	return &Game{
-		screen: screen,
+		Canvas: screen,
 		Width:  ScreenWidth,
 		Height: ScreenHeight,
 	}
 }
 
 func (g *Game) Update() error {
-	g.screen.UpdateGrid()
+	g.Canvas.UpdateGrid()
+	inputs(g)
 	return nil
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	g.screen.DrawCanvas(screen)
-	g.screen.DrawSpriteSheet(screen)
+	g.Canvas.DrawCanvas(screen)
+	g.Canvas.DrawSpriteSheet(screen)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
